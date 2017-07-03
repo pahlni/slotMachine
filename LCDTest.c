@@ -47,12 +47,12 @@
 // ST7735
 // Backlight (pin 10) connected to +3.3 V
 // MISO (pin 9) unconnected
-// SCK (pin 8) connected to P1.5 (UCB0CLK)
-// MOSI (pin 7) connected to P1.6 (UCB0SIMO)
-// TFT_CS (pin 6) connected to P5.0 (UCB0STE)
+// SCK (pin 8) connected to P9.5 (UCA3CLK)
+// MOSI (pin 7) connected to P9.7 (UCA3SIMO)
+// TFT_CS (pin 6) connected to P9.4 (UCA3STE)
 // CARD_CS (pin 5) unconnected
-// Data/Command (pin 4) connected to P5.2 (GPIO), high for data, low for command
-// RESET (pin 3) connected to P3.6 (GPIO)
+// Data/Command (pin 4) connected to P9.2 (GPIO), high for data, low for command
+// RESET (pin 3) connected to P9.3 (GPIO)
 // VCC (pin 2) connected to +3.3 V
 // Gnd (pin 1) connected to ground
 
@@ -60,11 +60,11 @@
 // Silkscreen Label (SDC side up; LCD side down) - Connection
 // VCC  - +3.3 V
 // GND  - Ground
-// !SCL - P1.5 UCB0CLK SPI clock from microcontroller to TFT or SDC
-// !SDA - P1.6 UCB0SIMO SPI data from microcontroller to TFT or SDC
-// DC   - P5.2 TFT data/command
-// RES  - P3.6 TFT reset
-// CS   - P5.0 UCB0STE TFT_CS, active low to enable TFT
+// !SCL - P9.5 UCA3CLK SPI clock from microcontroller to TFT or SDC
+// !SDA - P9.7 UCA3SIMO SPI data from microcontroller to TFT or SDC
+// DC   - P9.2 TFT data/command
+// RES  - P9.3 TFT reset
+// CS   - P9.4 UCA3STE TFT_CS, active low to enable TFT
 // *CS  - (NC) SDC_CS, active low to enable SDC
 // MISO - (NC) MISO SPI data from SDC to microcontroller
 // SDA  – (NC) I2C data for ADXL345 accelerometer
@@ -76,11 +76,11 @@
 // Silkscreen Label (SDC side up; LCD side down) - Connection
 // VCC  - +3.3 V
 // GND  - Ground
-// !SCL - P1.5 UCB0CLK SPI clock from microcontroller to TFT or SDC
-// !SDA - P1.6 UCB0SIMO SPI data from microcontroller to TFT or SDC
-// DC   - P5.2 TFT data/command
-// RES  - P3.6 TFT reset
-// CS   - P5.0 UCB0STE TFT_CS, active low to enable TFT
+// !SCL - P9.5 UCA3CLK SPI clock from microcontroller to TFT or SDC
+// !SDA - P9.7 UCA3SIMO SPI data from microcontroller to TFT or SDC
+// DC   - P9.2 TFT data/command
+// RES  - P9.3 TFT reset
+// CS   - P9.4 UCA3STE TFT_CS, active low to enable TFT
 // *CS  - (NC) SDC_CS, active low to enable SDC
 // MISO - (NC) MISO SPI data from SDC to microcontroller
 // X– (NC) analog input X-axis from ADXL335 accelerometer
@@ -90,8 +90,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "LCDDriver.h"
-#include "driverlib.h"
+#include "LCDTest.h"
+
 #include "msp.h"
 
 // 16 rows (0 to 15) and 21 characters (0 to 20)
@@ -146,12 +146,16 @@ uint16_t StTextColor = ST7735_YELLOW;
 #define ST7735_GMCTRP1 0xE0
 #define ST7735_GMCTRN1 0xE1
 
-#define TFT_CS                  P5->OUT  /* Port 5 Output, bit 0 is TFT CS */
-#define TFT_CS_BIT              BIT0        // CS normally controlled by hardware
-#define DC                      P5->OUT  /* Port 5 Output, bit 2 is DC */
+#define TFT_CS                  P5OUT  /* Port 5 Output, bit 0 is TFT CS */
+#define TFT_CS_BIT              BIT0   // CS normally controlled by hardware
+#define DC                      P5OUT  /* Port 5 Output, bit 2 is DC */
 #define DC_BIT                  BIT2
-#define RESET                   P3->OUT  /* Port 3 Output, bit 6 is RESET*/
+#define RESET                   P3OUT  /* Port 3 Output, bit 6 is RESET*/
 #define RESET_BIT               BIT6
+#define BACKLIGHT               P6OUT
+#define BACKLIGHT_DIR           P6DIR
+#define BACKLIGHT_BIT           BIT6
+
 
 #define ST7735_TFTWIDTH  128
 #define ST7735_TFTHEIGHT 160
@@ -481,12 +485,12 @@ static int16_t _height = ST7735_TFTHEIGHT;
 // This is a helper function that sends an 8-bit command to the LCD.
 // Inputs: c  8-bit code to transmit
 // Outputs: 8-bit reply
-// Assumes: UCB0 and Port 9 have already been initialized and enabled
+// Assumes: UCA3 and Port 9 have already been initialized and enabled
 uint8_t static writecommand(uint8_t c) {
-  while((UCB0IFG&0x0002)==0x0000){};    // wait until UCB0TXBUF empty
+  while((UCB0IFG&0x0002)==0x0000){};    // wait until UCA3TXBUF empty
   DC &= ~DC_BIT;
   UCB0TXBUF = c;                        // command out
-  while((UCB0IFG&0x0001)==0x0000){};    // wait until UCB0RXBUF full
+  while((UCB0IFG&0x0001)==0x0000){};    // wait until UCA3RXBUF full
   return UCB0RXBUF;                     // return the response
 }
 
@@ -494,12 +498,12 @@ uint8_t static writecommand(uint8_t c) {
 // This is a helper function that sends a piece of 8-bit data to the LCD.
 // Inputs: c  8-bit data to transmit
 // Outputs: 8-bit reply
-// Assumes: UCB0 and Port 9 have already been initialized and enabled
+// Assumes: UCA3 and Port 9 have already been initialized and enabled
 uint8_t static writedata(uint8_t c) {
-  while((UCB0IFG&0x0002)==0x0000){};    // wait until UCB0TXBUF empty
+  while((UCB0IFG&0x0002)==0x0000){};    // wait until UCA3TXBUF empty
   DC |= DC_BIT;
   UCB0TXBUF = c;                        // data out
-  while((UCB0IFG&0x0001)==0x0000){};    // wait until UCB0RXBUF full
+  while((UCB0IFG&0x0001)==0x0000){};    // wait until UCA3RXBUF full
   return UCB0RXBUF;                     // return the response
 }
 
@@ -533,6 +537,10 @@ void Delay1ms(uint32_t n){
     parrotdelay(5901);                  // 1 msec, tuned at 48 MHz
     n--;
   }
+}
+
+void DelayWait10ms(uint32_t n){
+  Delay1ms(n*10);
 }
 
 
@@ -703,16 +711,23 @@ void static commandList(const uint8_t *addr) {
 
 // Initialization code common to both 'B' and 'R' type displays
 void static commonInit(const uint8_t *cmdList) {
-  ColStart  = RowStart = 0; // May be overridden in init func
+  ColStart = 0;
+  RowStart = 0; // May be overridden in init func
+
+  // Turn on backlight
+  BACKLIGHT_DIR |= BACKLIGHT_BIT;
+  BACKLIGHT |= BACKLIGHT_BIT;
 
   // toggle RST low to reset; CS low so it'll listen to us
-  // UCB0STE is temporarily used as GPIO
-  P5SEL0 &= ~0x05;
-  P3SEL0 &= ~0x40;
-  P5SEL1 &= ~0x05;                      // configure P5.2 (D/C), P3.6 (Reset), and P5.0 (TFT_CS) as GPIO
-  P3SEL1 &= ~0x40;
-  P5DIR |= 0x05;                        // make P5.2 (D/C), P3.6 (Reset), and P5.0 (TFT_CS) out
-  P3DIR |= 0x40;
+  // UCA3STE is temporarily used as GPIO
+  P5SEL0 &= ~(DC_BIT | TFT_CS_BIT);
+
+  P5SEL1 &= ~(DC_BIT | TFT_CS_BIT); //configure P5.2 (D/C), and P5.0 (TFT_CS) as GPIO
+  P3SEL0 &= ~(RESET_BIT);
+  P3SEL1 &= ~(RESET_BIT); //configure P3.6 (Reset) as GPIO
+
+  P5DIR |= (DC_BIT | TFT_CS_BIT);      // make P5.2 (D/C), P3.6 (Reset), and P5.0 (TFT_CS) out
+  P3DIR |= (RESET_BIT);
   TFT_CS &= ~TFT_CS_BIT;
   RESET |= RESET_BIT;
   Delay1ms(500);
@@ -723,7 +738,7 @@ void static commonInit(const uint8_t *cmdList) {
 
   // initialize eUSCI
   UCB0CTLW0 = 0x0001;                   // hold the eUSCI module in reset mode
-  // configure UCB0CTLW0 for:
+  // configure UCA3CTLW0 for:
   // bit15      UCCKPH = 1; data shifts in on first edge, out on following edge
   // bit14      UCCKPL = 0; clock is low when inactive
   // bit13      UCMSB = 1; MSB first
@@ -740,19 +755,20 @@ void static commonInit(const uint8_t *cmdList) {
   // Clock_Init48MHz() from ClockSystem.c sets SMCLK = HFXTCLK/4 = 12 MHz
   // if the SMCLK is set to 12 MHz, divide by 3 for 4 MHz baud clock
   UCB0BRW = 3;
-  // modulation is not used in SPI mode, so clear UCB0MCTLW
-  //UCB0MCTLW = 0;
-  P1SEL0 |= 0xE0;
-  P5SEL0 |= 0x01;
-  P1SEL1 &= 0xE0;                      // configure P1.6, P1.5, and P5.0 as primary module function
-  P5SEL1 &= 0x01;
+  // modulation is not used in SPI mode, so clear UCA3MCTLW
+  //UCB0CTLW0 = 0;
+  P1SEL0 |= (BIT5 | BIT6 | BIT7);       // SPI pins
 
-  P3SEL0 &= ~0x40;
-  P5SEL0 &= ~0x04;
-  P3SEL1 &= ~0x40;                      // configure P3.6 and P5.2 as GPIO (Reset and D/C pins)
-  P5SEL1 &= ~0x04;
-  P3DIR |= 0x40;                        // make P3.6 and P5.2 out (Reset and D/C pins)
-  P5DIR |= 0x04;
+  P1SEL1 &= ~(BIT5 | BIT6 | BIT7);      // configure P1.5, P1.6, and P1.7 as primary module function
+
+
+  P3SEL0 &= ~RESET_BIT;
+
+  P3SEL1 &= ~RESET_BIT;                 // configure P3.6 and P5.2 as GPIO (Reset and D/C pins)
+  P5SEL0 &= ~DC_BIT;
+  P5SEL1 &= ~DC_BIT;
+  P5DIR |= DC_BIT;                      // make P3.6 and P5.2 out (Reset and D/C pins)
+  P3DIR |= RESET_BIT;
   UCB0CTLW0 &= ~0x0001;                 // enable eUSCI module
   UCB0IE &= ~0x0003;                    // disable interrupts
 

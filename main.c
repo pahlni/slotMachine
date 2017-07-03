@@ -62,20 +62,22 @@
 #include "msp.h"
 
 #include "buttonDriver.h"
-#include "LCDDriver.h"
+#include "LCDTest.h"
 #include "ClockSystem.h"
 
 void ClkInit(void)
 {
     /* Configuring pins for peripheral/crystal usage and LED for output */
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_PJ,
-            GPIO_PIN3 | GPIO_PIN2, GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(
+            GPIO_PORT_PJ,
+            GPIO_PIN3 | GPIO_PIN2,
+            GPIO_PRIMARY_MODULE_FUNCTION);
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0);
 
     /* Just in case the user wants to use the getACLK, getMCLK, etc. functions,
      * let's set the clock frequency in the code.
      */
-    CS_setExternalClockSourceFrequency(32000,48000000);
+    CS_setExternalClockSourceFrequency(32000, 48000000);
 
     /* Starting HFXT in non-bypass mode without a timeout. Before we start
      * we have to change VCORE to 1 to support the 48MHz frequency */
@@ -101,9 +103,14 @@ int main(void)
     P6->DIR |= BIT6;
     P6->OUT |= BIT6;
 
-    Output_Init();
-    printf("hello world");
+    int i;
 
+    ST7735_InitR(INITR_REDTAB);
+    ST7735_FillRect(20, 20, 2, 2, ST7735_YELLOW);
+    for (i = 0; i < 80; i++)
+    {
+        ST7735_FillRect(i, 2 * i, 2, 2, ST7735_MAGENTA);
+    }
     buttonInit();
 
     /* Configuring P4.5 as output (on shield LED) */
