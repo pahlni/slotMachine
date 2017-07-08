@@ -7,7 +7,7 @@
 
 #include "draw.h"
 #include "handles.h"
-#include "LCDTest.c"
+#include "LCDTest.h"
 #include "symbols.h"
 
 // This function draws in the lines that create the columns in the slot machine
@@ -15,10 +15,9 @@ void drawDividers()
 {
     int i;
     for(i = 0; i < 3; i++){
-        ST7735_DrawFastHLine( 34 + i, 0, 128, ST7735_BLACK);
-        ST7735_DrawFastHLine( 75 + i, 0, 128, ST7735_BLACK);
-        ST7735_DrawFastHLine(116 + i, 0, 128, ST7735_BLACK);
-        ST7735_DrawFastHLine(157 + i, 0, 128, ST7735_BLACK);
+        ST7735_DrawFastHLine( 0, 38 + i, 128, ST7735_BLACK);
+        ST7735_DrawFastHLine( 0, 79 + i, 128, ST7735_BLACK);
+        ST7735_DrawFastHLine( 0, 120 + i, 128, ST7735_BLACK);
     }
 }
 
@@ -36,7 +35,7 @@ void drawEdges()
 // This function draws the bitmap of the handle
 void drawHandle(int handleIdx)
 {
-    ST7735_DrawBitmap(0, 33, &HANDLES[handleIdx][0], 128, 34);
+    ST7735_DrawBitmap(0, 156, &HANDLES[handleIdx][0], 128, 34);
 }
 
 // This function draws the corresponding symbol at the given location

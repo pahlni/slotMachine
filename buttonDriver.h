@@ -9,9 +9,12 @@
 #define BUTTONDRIVER_H_
 
 void buttonInit(void);
-void buttonISR(void);
-int isButtonPress(void);
-void clearButtonPress(void);
+void button1ISR(void);
+void button2ISR(void);
+int isButton1Press(void);
+int isButton2Press(void);
+void clearButton1Press(void);
+void clearButton2Press(void);
 
 
 #endif /* BUTTONDRIVER_H_ */

@@ -56,14 +56,17 @@
 
 /* Standard Includes */
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 #include "msp.h"
 
 #include "buttonDriver.h"
-#include "LCDTest.h"
+#include "LCDDriver.h"
 #include "ClockSystem.h"
+#include "draw.h"
+#include "ADC.h"
 
 void ClkInit(void)
 {
@@ -90,10 +93,26 @@ void ClkInit(void)
     MAP_CS_initClockSignal(CS_MCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_1);
 }
 
+typedef enum slotState_e
+{
+    SLOT_IDLE, SLOT_SPIN, SLOT_ONE, SLOT_TWO, SLOT_VICTORY, SLOT_FAILURE
+} slotState_t;
+
+typedef enum handleState_e
+{
+    HANDLE_IDLE, HANDLE_PULL, HANDLE_UP
+} handleState_t;
+
 int main(void)
 {
     /* Stop Watchdog  */
     MAP_WDT_A_holdTimer();
+
+    slotState_t slotState = SLOT_IDLE;
+    handleState_t handleState = HANDLE_IDLE;
+    int handlePosition = 0;
+    int slotPosition = 0;
+    int slotIcons[12] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2 };
 
     //Clock_Init48MHz();
     ClkInit();
@@ -103,28 +122,149 @@ int main(void)
     P6->DIR |= BIT6;
     P6->OUT |= BIT6;
 
-    int i;
+    initAdc();
 
     ST7735_InitR(INITR_REDTAB);
-    ST7735_FillRect(20, 20, 2, 2, ST7735_YELLOW);
-    for (i = 0; i < 80; i++)
-    {
-        ST7735_FillRect(i, 2 * i, 2, 2, ST7735_MAGENTA);
-    }
-    buttonInit();
+    ST7735_FillScreen(ST7735_WHITE);
 
-    /* Configuring P4.5 as output (on shield LED) */
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN5);
+    ST7735_SetRotation(2);
+
+    drawDividers();
+
+    drawSymbol(82, COLUMN_TWO, slotIcons[11]);
+    drawSymbol(82, COLUMN_ONE, slotIcons[10]);
+    drawSymbol(82, COLUMN_ZERO, slotIcons[9]);
+    drawSymbol(41, COLUMN_TWO, slotIcons[8]);
+    drawSymbol(41, COLUMN_ONE, slotIcons[7]);
+    drawSymbol(41, COLUMN_ZERO, slotIcons[6]);
+    drawSymbol(0, COLUMN_TWO, slotIcons[5]);
+    drawSymbol(0, COLUMN_ONE, slotIcons[4]);
+    drawSymbol(0, COLUMN_ZERO, slotIcons[3]);
+
+    drawHandle(0);
+
+    srand(readAdc());
+
+    buttonInit();
 
     /* Enabling MASTER interrupts */
     MAP_Interrupt_enableMaster();
 
     while (1)
     {
-        if (isButtonPress())
+        if (isButton1Press() && handleState == HANDLE_IDLE
+                && slotState == SLOT_IDLE)
         {
-            clearButtonPress();
-            MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P4, GPIO_PIN5);
+            clearButton1Press();
+            handleState = HANDLE_PULL;
         }
+
+        if (isButton2Press()
+                && (slotState == SLOT_SPIN || slotState == SLOT_ONE
+                        || slotState == SLOT_TWO))
+        {
+            clearButton2Press();
+            slotState++;
+
+        }
+
+        if (handleState != HANDLE_IDLE && slotState == SLOT_IDLE)
+        {
+            handlePosition =
+                    (handleState == HANDLE_PULL) ?
+                            ++handlePosition : --handlePosition;
+            drawHandle(handlePosition);
+            handleState = (handlePosition >= 5) ? HANDLE_UP : handleState;
+            handleState = (handlePosition <= 0) ? HANDLE_IDLE : handleState;
+            slotState = (handleState == HANDLE_IDLE) ? SLOT_SPIN : slotState;
+        }
+
+        if (slotState == SLOT_SPIN)
+        {
+            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_ZERO,
+                       slotIcons[9]);
+            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_ZERO,
+                       slotIcons[6]);
+            drawSymbol(((slotPosition + 41) % 169 - 41), COLUMN_ZERO,
+                       slotIcons[3]);
+            drawSymbol((slotPosition % 169) - 41, COLUMN_ZERO, slotIcons[0]);
+
+            if ((slotPosition % 169) <= 8)
+            {
+                slotIcons[0] = rand() % 9;
+            }
+            else if ((slotPosition + 40) % 169 <= 8)
+            {
+                slotIcons[3] = rand() % 9;
+            }
+            else if ((slotPosition + 80) % 169 <= 8)
+            {
+                slotIcons[6] = rand() % 9;
+            }
+            else if ((slotPosition + 120) % 169 <= 8)
+            {
+                slotIcons[9] = rand() % 9;
+            }
+        }
+
+        if (slotState == SLOT_SPIN || slotState == SLOT_ONE)
+        {
+            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_ONE,
+                       slotIcons[10]);
+            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_ONE,
+                       slotIcons[7]);
+            drawSymbol(((slotPosition + 41) % 169) - 41, COLUMN_ONE,
+                       slotIcons[4]);
+            drawSymbol((slotPosition % 169) - 41, COLUMN_ONE, slotIcons[1]);
+
+            slotPosition += 8;
+            if ((slotPosition % 169) <= 8)
+            {
+                slotIcons[1] = rand() % 9;
+            }
+            else if ((slotPosition + 40) % 169 <= 8)
+            {
+                slotIcons[4] = rand() % 9;
+            }
+            else if ((slotPosition + 80) % 169 <= 8)
+            {
+                slotIcons[7] = rand() % 9;
+            }
+            else if ((slotPosition + 120) % 169 <= 8)
+            {
+                slotIcons[10] = rand() % 9;
+            }
+        }
+
+        if (slotState == SLOT_SPIN || slotState == SLOT_ONE || slotState == SLOT_TWO)
+        {
+            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_TWO,
+                       slotIcons[11]);
+            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_TWO,
+                       slotIcons[8]);
+            drawSymbol(((slotPosition + 41) % 169) - 41, COLUMN_TWO,
+                       slotIcons[5]);
+            drawSymbol((slotPosition % 169) - 41, COLUMN_TWO, slotIcons[2]);
+
+            slotPosition += 8;
+
+            if ((slotPosition % 169) <= 8)
+            {
+                slotIcons[2] = rand() % 9;
+            }
+            else if ((slotPosition + 40) % 169 <= 8)
+            {
+                slotIcons[5] = rand() % 9;
+            }
+            else if ((slotPosition + 80) % 169 <= 8)
+            {
+                slotIcons[8] = rand() % 9;
+            }
+            else if ((slotPosition + 120) % 169 <= 8)
+            {
+                slotIcons[11] = rand() % 9;
+            }
+        }
+
     }
 }

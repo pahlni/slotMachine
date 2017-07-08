@@ -16,7 +16,8 @@
 
 #include "buttonDriver.h"
 
-int buttonState = 0;
+int button1State = 0;
+int button2State = 0;
 
 void buttonInit(void)
 {
@@ -25,9 +26,15 @@ void buttonInit(void)
     MAP_GPIO_clearInterruptFlag(GPIO_PORT_P5, GPIO_PIN7);
     MAP_GPIO_enableInterrupt(GPIO_PORT_P5, GPIO_PIN7);
     MAP_Interrupt_enableInterrupt(INT_PORT5);
+
+    /* Configuring P5.7 as an input and enabling interrupts */
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P3, GPIO_PIN7);
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P3, GPIO_PIN7);
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P3, GPIO_PIN7);
+    MAP_Interrupt_enableInterrupt(INT_PORT3);
 }
 
-void buttonISR(void)
+void button1ISR(void)
 {
     uint32_t status;
 
@@ -54,17 +61,59 @@ void buttonISR(void)
 
         if (debounce == 0x3ff)
         {
-            buttonState = 1;
+            button1State = 1;
         }
     }
 }
 
-int isButtonPress(void)
+void button2ISR(void)
 {
-    return buttonState;
+    uint32_t status;
+
+    status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P3);
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P3, status);
+
+    /* Toggling the output on the LED */
+    if (status & GPIO_PIN7)
+    {
+        uint32_t debounce = 0;
+        int i;
+        for (i = 0; i < 10; i++)
+        {
+            debounce = debounce << 1;
+            if (P3->IN & BIT7)
+            {
+                debounce |= 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (debounce == 0x3ff)
+        {
+            button2State = 1;
+        }
+    }
 }
 
-void clearButtonPress(void)
+int isButton1Press(void)
 {
-    buttonState = 0;
+    return button1State;
+}
+
+void clearButton1Press(void)
+{
+    button1State = 0;
+}
+
+int isButton2Press(void)
+{
+    return button2State;
+}
+
+void clearButton2Press(void)
+{
+    button2State = 0;
 }

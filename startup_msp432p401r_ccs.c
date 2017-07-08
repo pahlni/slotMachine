@@ -58,7 +58,8 @@ extern unsigned long __STACK_END;
 
 /* To be added by user */
 
-extern void buttonISR(void);
+extern void button1ISR(void);
+extern void button2ISR(void);
 
 /* Interrupt vector table.  Note that the proper constructs must be placed on this to  */
 /* ensure that it ends up at physical address 0x0000.0000 or at the start of          */
@@ -121,9 +122,9 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* DMA_INT0 ISR              */
     defaultISR,                             /* PORT1 ISR                 */
     defaultISR,                             /* PORT2 ISR                 */
-    defaultISR,                             /* PORT3 ISR                 */
+    button2ISR,                             /* PORT3 ISR                 */
     defaultISR,                             /* PORT4 ISR                 */
-    buttonISR,                             /* PORT5 ISR                 */
+    button1ISR,                             /* PORT5 ISR                 */
     defaultISR,                             /* PORT6 ISR                 */
     defaultISR,                             /* Reserved 41               */
     defaultISR,                             /* Reserved 42               */

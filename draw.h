@@ -8,6 +8,9 @@
 #ifndef DRAW_H_
 #define DRAW_H_
 
+#define COLUMN_ZERO 37
+#define COLUMN_ONE 78
+#define COLUMN_TWO 119
 
 void drawDividers();
 void drawEdges();
