@@ -67,6 +67,7 @@ void drawVictory(int column)
     }
 }
 
+// This function will print Failure when the user wins
 void drawFailure()
 {
     ST7735_SetRotation(3);

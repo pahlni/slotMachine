@@ -34,6 +34,7 @@ void buttonInit(void)
     MAP_Interrupt_enableInterrupt(INT_PORT3);
 }
 
+// ISR for debouncing button 1
 void button1ISR(void)
 {
     uint32_t status;
@@ -41,7 +42,6 @@ void button1ISR(void)
     status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P5);
     MAP_GPIO_clearInterruptFlag(GPIO_PORT_P5, status);
 
-    /* Toggling the output on the LED */
     if (status & GPIO_PIN7)
     {
         uint32_t debounce = 0;
@@ -66,6 +66,7 @@ void button1ISR(void)
     }
 }
 
+// ISR for debouncing button 1
 void button2ISR(void)
 {
     uint32_t status;
@@ -73,7 +74,6 @@ void button2ISR(void)
     status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P3);
     MAP_GPIO_clearInterruptFlag(GPIO_PORT_P3, status);
 
-    /* Toggling the output on the LED */
     if (status & GPIO_PIN7)
     {
         uint32_t debounce = 0;

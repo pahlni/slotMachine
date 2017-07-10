@@ -64,7 +64,6 @@
 
 #include "buttonDriver.h"
 #include "LCDDriver.h"
-#include "ClockSystem.h"
 #include "draw.h"
 #include "ADC.h"
 
@@ -90,9 +89,13 @@ typedef enum handleState_e
     HANDLE_IDLE, HANDLE_PULL, HANDLE_UP
 } handleState_t;
 
+// position of slot machine reel
 int g_slotPosition = 0;
+// slot icon values for all reels
 int g_slotIcons[3][4] = { { 0, 1, 2, 0 }, { 3, 4, 5, 3 }, { 6, 7, 8, 6 } };
+// state of slot machine
 slotState_t g_slotState = SLOT_IDLE;
+// values of stopped slot machine icons
 int g_stoppedIcons[3][3];
 
 int main(void)
@@ -107,8 +110,7 @@ int main(void)
     //Clock_Init48MHz();
     ClkInit();
 
-    uint32_t smclk = MAP_CS_getSMCLK();
-
+    //Initialize ADC for rand seeding
     initAdc();
 
     ST7735_InitR(INITR_REDTAB);
@@ -118,6 +120,7 @@ int main(void)
 
     drawDividers();
 
+    //print all icons first
     drawSymbol(ICON_HEIGHT * 2, 0, g_slotIcons[0][0]);
     drawSymbol(ICON_HEIGHT, 0, g_slotIcons[0][1]);
     drawSymbol(0, 0, g_slotIcons[0][2]);
@@ -141,6 +144,7 @@ int main(void)
 
     while (1)
     {
+        // handle pull button check
         if (isButton1Press() && handleState == HANDLE_IDLE
                 && g_slotState == SLOT_IDLE)
         {
@@ -149,6 +153,7 @@ int main(void)
             clearButton2Press();
         }
 
+        // stop reels button check
         if (isButton2Press()
                 && (g_slotState == SLOT_SPIN || g_slotState == SLOT_ONE
                         || g_slotState == SLOT_TWO))
@@ -157,6 +162,7 @@ int main(void)
             stopFlag = 1;
         }
 
+        // stops the reels in the correct spots on position for icons
         if (stopFlag)
         {
             if(getStoppedIcons(g_slotState - 1)){
@@ -165,9 +171,11 @@ int main(void)
             }
         }
 
+        // checks for victory or failure
         if(g_slotState == SLOT_DONE){
             int i;
             for(i = 0; i < 3; i++){
+                // check if the stopped icons are the same
                 if(g_stoppedIcons[0][i] == g_stoppedIcons[1][i] && g_stoppedIcons[1][i] == g_stoppedIcons[2][i]){
                     drawVictory(i);
                     return 0;
@@ -179,6 +187,7 @@ int main(void)
 
         }
 
+        // animates the handle pulling and returning
         if (handleState != HANDLE_IDLE && g_slotState == SLOT_IDLE)
         {
             handlePosition =
@@ -197,6 +206,7 @@ int main(void)
             }
         }
 
+        // spins the reels
         if (g_slotState == SLOT_SPIN)
         {
             updateIcons(0);
@@ -211,6 +221,7 @@ int main(void)
                 || g_slotState == SLOT_TWO)
         {
             updateIcons(2);
+            // advances the slot position
             g_slotPosition += SPEED;
         }
 
@@ -242,8 +253,11 @@ void ClkInit(void)
     MAP_CS_initClockSignal(CS_MCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_1);
 }
 
+// moves the reels and randomizes the upcoming icon
 void updateIcons(int column)
 {
+    // prints all the icons depending on the slot position
+    // (slotPosition + Icon height) % 170 (high of screen and one icon) - Icon height
     drawSymbol(((g_slotPosition + ICON_HEIGHT * 3) % 170) - ICON_HEIGHT, column,
                g_slotIcons[column][0]);
     drawSymbol(((g_slotPosition + ICON_HEIGHT * 2) % 170) - ICON_HEIGHT, column,
@@ -253,6 +267,7 @@ void updateIcons(int column)
     drawSymbol((g_slotPosition % 170) - ICON_HEIGHT, column,
                g_slotIcons[column][3]);
 
+    // randomize the upcoming icon when it is off screen
     if ((g_slotPosition % 170) <= SPEED)
     {
         g_slotIcons[column][3] = rand() % 9;
@@ -271,8 +286,10 @@ void updateIcons(int column)
     }
 }
 
+// stores the stopped icons when they are in the correct positions
 int getStoppedIcons(int column)
 {
+    // this is when icon 3 is off screen so store 0, 1, and 2
     if ((g_slotPosition % 170) <= SPEED)
     {
         g_stoppedIcons[column][0] = g_slotIcons[column][0];
