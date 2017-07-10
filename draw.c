@@ -7,8 +7,11 @@
 
 #include "draw.h"
 #include "handles.h"
-#include "LCDTest.h"
+#include "LCDDriver.h"
 #include "symbols.h"
+
+
+#define ICON_HEIGHT 42
 
 // This function draws in the lines that create the columns in the slot machine
 void drawDividers()
@@ -39,15 +42,35 @@ void drawHandle(int handleIdx)
 }
 
 // This function draws the corresponding symbol at the given location
-void drawSymbol(int x, int y, int symbolIdx)
+void drawSymbol(int x, int column, int symbolIdx)
 {
-    ST7735_DrawBitmap(x, y, &SYMBOLS[symbolIdx][0], 40, 38);
+    if(column == 0){
+        ST7735_DrawBitmap(x, COLUMN_ZERO, &SYMBOLS[symbolIdx][0], 42, 38);
+    } else if(column == 1){
+        ST7735_DrawBitmap(x, COLUMN_ONE, &SYMBOLS[symbolIdx][0], 42, 38);
+    } else if(column == 2){
+        ST7735_DrawBitmap(x, COLUMN_TWO, &SYMBOLS[symbolIdx][0], 42, 38);
+    }
 }
 
 // This function will print Victory when the user wins
-void drawVictory()
+void drawVictory(int column)
 {
-    // get/setRotation()
+    ST7735_SetRotation(3);
+    char string[] = "VICTORY!";
+    if(column == 0){
+        ST7735_DrawString(2, 1, &string[0], ST7735_Color565(0, 255, 0));
+    } else if(column == 1){
+        ST7735_DrawString(2, 6, &string[0], ST7735_Color565(0, 255, 0));
+    } else if(column == 2){
+        ST7735_DrawString(2, 10, &string[0], ST7735_Color565(0, 255, 0));
+    }
 }
 
+void drawFailure()
+{
+    ST7735_SetRotation(3);
+    char string[] = "FAILURE!";
+    ST7735_DrawString(2, 6, &string[0], ST7735_Color565(0, 255, 0));
+}
 

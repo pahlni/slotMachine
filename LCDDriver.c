@@ -756,6 +756,10 @@ void static commonInit(const uint8_t *cmdList) {
   UCB0CTLW0 &= ~0x0001;                 // enable eUSCI module
   UCB0IE &= ~0x0003;                    // disable interrupts
 
+  // Turn on back light
+  P6->DIR |= BIT6;
+  P6->OUT |= BIT6;
+
   if(cmdList) commandList(cmdList);
 }
 
@@ -1145,9 +1149,9 @@ uint32_t ST7735_DrawString(uint16_t x, uint16_t y, char *pt, int16_t textColor){
   uint32_t count = 0;
   if(y>15) return 0;
   while(*pt){
-    ST7735_DrawCharS(x*6, y*10, *pt, textColor, ST7735_BLACK, 1);
+    ST7735_DrawCharS(x*6, y*10, *pt, textColor, ST7735_BLACK, 2);
     pt++;
-    x = x+1;
+    x = x+2;
     if(x>20) return count;  // number of characters printed
     count++;
   }

@@ -68,6 +68,155 @@
 #include "draw.h"
 #include "ADC.h"
 
+#define SPEED 8
+
+void ClkInit(void);
+
+void updateIcons(int column);
+
+int getStoppedIcons(int column);
+
+typedef enum slotState_e
+{
+    SLOT_IDLE,
+    SLOT_SPIN = 1,
+    SLOT_ONE = 2,
+    SLOT_TWO = 3,
+    SLOT_DONE = 4
+} slotState_t;
+
+typedef enum handleState_e
+{
+    HANDLE_IDLE, HANDLE_PULL, HANDLE_UP
+} handleState_t;
+
+int g_slotPosition = 0;
+int g_slotIcons[3][4] = { { 0, 1, 2, 0 }, { 3, 4, 5, 3 }, { 6, 7, 8, 6 } };
+slotState_t g_slotState = SLOT_IDLE;
+int g_stoppedIcons[3][3];
+
+int main(void)
+{
+    /* Stop Watchdog  */
+    MAP_WDT_A_holdTimer();
+
+    handleState_t handleState = HANDLE_IDLE;
+    int handlePosition = 0;
+    int stopFlag = 0;
+
+    //Clock_Init48MHz();
+    ClkInit();
+
+    uint32_t smclk = MAP_CS_getSMCLK();
+
+    initAdc();
+
+    ST7735_InitR(INITR_REDTAB);
+    ST7735_FillScreen(ST7735_WHITE);
+
+    ST7735_SetRotation(2);
+
+    drawDividers();
+
+    drawSymbol(ICON_HEIGHT * 2, 0, g_slotIcons[0][0]);
+    drawSymbol(ICON_HEIGHT, 0, g_slotIcons[0][1]);
+    drawSymbol(0, 0, g_slotIcons[0][2]);
+
+    drawSymbol(ICON_HEIGHT * 2, 1, g_slotIcons[1][0]);
+    drawSymbol(ICON_HEIGHT, 1, g_slotIcons[1][1]);
+    drawSymbol(0, 1, g_slotIcons[1][2]);
+
+    drawSymbol(ICON_HEIGHT * 2, 2, g_slotIcons[2][0]);
+    drawSymbol(ICON_HEIGHT, 2, g_slotIcons[2][1]);
+    drawSymbol(0, 2, g_slotIcons[2][2]);
+
+    drawHandle(0);
+
+    srand(readAdc());
+
+    buttonInit();
+
+    /* Enabling MASTER interrupts */
+    MAP_Interrupt_enableMaster();
+
+    while (1)
+    {
+        if (isButton1Press() && handleState == HANDLE_IDLE
+                && g_slotState == SLOT_IDLE)
+        {
+            clearButton1Press();
+            handleState = HANDLE_PULL;
+            clearButton2Press();
+        }
+
+        if (isButton2Press()
+                && (g_slotState == SLOT_SPIN || g_slotState == SLOT_ONE
+                        || g_slotState == SLOT_TWO))
+        {
+            clearButton2Press();
+            stopFlag = 1;
+        }
+
+        if (stopFlag)
+        {
+            if(getStoppedIcons(g_slotState - 1)){
+                stopFlag = 0;
+                g_slotState++;
+            }
+        }
+
+        if(g_slotState == SLOT_DONE){
+            int i;
+            for(i = 0; i < 3; i++){
+                if(g_stoppedIcons[0][i] == g_stoppedIcons[1][i] && g_stoppedIcons[1][i] == g_stoppedIcons[2][i]){
+                    drawVictory(i);
+                    return 0;
+                }
+            }
+
+            drawFailure();
+            return 0;
+
+        }
+
+        if (handleState != HANDLE_IDLE && g_slotState == SLOT_IDLE)
+        {
+            handlePosition =
+                    (handleState == HANDLE_PULL) ?
+                            ++handlePosition : --handlePosition;
+            drawHandle(handlePosition);
+
+            if (handlePosition >= 5)
+            {
+                handleState = HANDLE_UP;
+            }
+            if (handlePosition <= 0)
+            {
+                handleState = HANDLE_IDLE;
+                g_slotState = SLOT_SPIN;
+            }
+        }
+
+        if (g_slotState == SLOT_SPIN)
+        {
+            updateIcons(0);
+        }
+
+        if (g_slotState == SLOT_SPIN || g_slotState == SLOT_ONE)
+        {
+            updateIcons(1);
+        }
+
+        if (g_slotState == SLOT_SPIN || g_slotState == SLOT_ONE
+                || g_slotState == SLOT_TWO)
+        {
+            updateIcons(2);
+            g_slotPosition += SPEED;
+        }
+
+    }
+}
+
 void ClkInit(void)
 {
     /* Configuring pins for peripheral/crystal usage and LED for output */
@@ -93,178 +242,64 @@ void ClkInit(void)
     MAP_CS_initClockSignal(CS_MCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_1);
 }
 
-typedef enum slotState_e
+void updateIcons(int column)
 {
-    SLOT_IDLE, SLOT_SPIN, SLOT_ONE, SLOT_TWO, SLOT_VICTORY, SLOT_FAILURE
-} slotState_t;
+    drawSymbol(((g_slotPosition + ICON_HEIGHT * 3) % 170) - ICON_HEIGHT, column,
+               g_slotIcons[column][0]);
+    drawSymbol(((g_slotPosition + ICON_HEIGHT * 2) % 170) - ICON_HEIGHT, column,
+               g_slotIcons[column][1]);
+    drawSymbol(((g_slotPosition + ICON_HEIGHT * 1) % 170 - ICON_HEIGHT), column,
+               g_slotIcons[column][2]);
+    drawSymbol((g_slotPosition % 170) - ICON_HEIGHT, column,
+               g_slotIcons[column][3]);
 
-typedef enum handleState_e
-{
-    HANDLE_IDLE, HANDLE_PULL, HANDLE_UP
-} handleState_t;
-
-int main(void)
-{
-    /* Stop Watchdog  */
-    MAP_WDT_A_holdTimer();
-
-    slotState_t slotState = SLOT_IDLE;
-    handleState_t handleState = HANDLE_IDLE;
-    int handlePosition = 0;
-    int slotPosition = 0;
-    int slotIcons[12] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2 };
-
-    //Clock_Init48MHz();
-    ClkInit();
-
-    uint32_t smclk = MAP_CS_getSMCLK();
-
-    P6->DIR |= BIT6;
-    P6->OUT |= BIT6;
-
-    initAdc();
-
-    ST7735_InitR(INITR_REDTAB);
-    ST7735_FillScreen(ST7735_WHITE);
-
-    ST7735_SetRotation(2);
-
-    drawDividers();
-
-    drawSymbol(82, COLUMN_TWO, slotIcons[11]);
-    drawSymbol(82, COLUMN_ONE, slotIcons[10]);
-    drawSymbol(82, COLUMN_ZERO, slotIcons[9]);
-    drawSymbol(41, COLUMN_TWO, slotIcons[8]);
-    drawSymbol(41, COLUMN_ONE, slotIcons[7]);
-    drawSymbol(41, COLUMN_ZERO, slotIcons[6]);
-    drawSymbol(0, COLUMN_TWO, slotIcons[5]);
-    drawSymbol(0, COLUMN_ONE, slotIcons[4]);
-    drawSymbol(0, COLUMN_ZERO, slotIcons[3]);
-
-    drawHandle(0);
-
-    srand(readAdc());
-
-    buttonInit();
-
-    /* Enabling MASTER interrupts */
-    MAP_Interrupt_enableMaster();
-
-    while (1)
+    if ((g_slotPosition % 170) <= SPEED)
     {
-        if (isButton1Press() && handleState == HANDLE_IDLE
-                && slotState == SLOT_IDLE)
-        {
-            clearButton1Press();
-            handleState = HANDLE_PULL;
-        }
-
-        if (isButton2Press()
-                && (slotState == SLOT_SPIN || slotState == SLOT_ONE
-                        || slotState == SLOT_TWO))
-        {
-            clearButton2Press();
-            slotState++;
-
-        }
-
-        if (handleState != HANDLE_IDLE && slotState == SLOT_IDLE)
-        {
-            handlePosition =
-                    (handleState == HANDLE_PULL) ?
-                            ++handlePosition : --handlePosition;
-            drawHandle(handlePosition);
-            handleState = (handlePosition >= 5) ? HANDLE_UP : handleState;
-            handleState = (handlePosition <= 0) ? HANDLE_IDLE : handleState;
-            slotState = (handleState == HANDLE_IDLE) ? SLOT_SPIN : slotState;
-        }
-
-        if (slotState == SLOT_SPIN)
-        {
-            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_ZERO,
-                       slotIcons[9]);
-            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_ZERO,
-                       slotIcons[6]);
-            drawSymbol(((slotPosition + 41) % 169 - 41), COLUMN_ZERO,
-                       slotIcons[3]);
-            drawSymbol((slotPosition % 169) - 41, COLUMN_ZERO, slotIcons[0]);
-
-            if ((slotPosition % 169) <= 8)
-            {
-                slotIcons[0] = rand() % 9;
-            }
-            else if ((slotPosition + 40) % 169 <= 8)
-            {
-                slotIcons[3] = rand() % 9;
-            }
-            else if ((slotPosition + 80) % 169 <= 8)
-            {
-                slotIcons[6] = rand() % 9;
-            }
-            else if ((slotPosition + 120) % 169 <= 8)
-            {
-                slotIcons[9] = rand() % 9;
-            }
-        }
-
-        if (slotState == SLOT_SPIN || slotState == SLOT_ONE)
-        {
-            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_ONE,
-                       slotIcons[10]);
-            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_ONE,
-                       slotIcons[7]);
-            drawSymbol(((slotPosition + 41) % 169) - 41, COLUMN_ONE,
-                       slotIcons[4]);
-            drawSymbol((slotPosition % 169) - 41, COLUMN_ONE, slotIcons[1]);
-
-            slotPosition += 8;
-            if ((slotPosition % 169) <= 8)
-            {
-                slotIcons[1] = rand() % 9;
-            }
-            else if ((slotPosition + 40) % 169 <= 8)
-            {
-                slotIcons[4] = rand() % 9;
-            }
-            else if ((slotPosition + 80) % 169 <= 8)
-            {
-                slotIcons[7] = rand() % 9;
-            }
-            else if ((slotPosition + 120) % 169 <= 8)
-            {
-                slotIcons[10] = rand() % 9;
-            }
-        }
-
-        if (slotState == SLOT_SPIN || slotState == SLOT_ONE || slotState == SLOT_TWO)
-        {
-            drawSymbol(((slotPosition + 123) % 169) - 41, COLUMN_TWO,
-                       slotIcons[11]);
-            drawSymbol(((slotPosition + 82) % 169) - 41, COLUMN_TWO,
-                       slotIcons[8]);
-            drawSymbol(((slotPosition + 41) % 169) - 41, COLUMN_TWO,
-                       slotIcons[5]);
-            drawSymbol((slotPosition % 169) - 41, COLUMN_TWO, slotIcons[2]);
-
-            slotPosition += 8;
-
-            if ((slotPosition % 169) <= 8)
-            {
-                slotIcons[2] = rand() % 9;
-            }
-            else if ((slotPosition + 40) % 169 <= 8)
-            {
-                slotIcons[5] = rand() % 9;
-            }
-            else if ((slotPosition + 80) % 169 <= 8)
-            {
-                slotIcons[8] = rand() % 9;
-            }
-            else if ((slotPosition + 120) % 169 <= 8)
-            {
-                slotIcons[11] = rand() % 9;
-            }
-        }
-
+        g_slotIcons[column][3] = rand() % 9;
     }
+    else if ((g_slotPosition + ICON_HEIGHT * 1) % 170 <= SPEED)
+    {
+        g_slotIcons[column][2] = rand() % 9;
+    }
+    else if ((g_slotPosition + ICON_HEIGHT * 2) % 170 <= SPEED)
+    {
+        g_slotIcons[column][1] = rand() % 9;
+    }
+    else if ((g_slotPosition + ICON_HEIGHT * 3) % 170 <= SPEED)
+    {
+        g_slotIcons[column][0] = rand() % 9;
+    }
+}
+
+int getStoppedIcons(int column)
+{
+    if ((g_slotPosition % 170) <= SPEED)
+    {
+        g_stoppedIcons[column][0] = g_slotIcons[column][0];
+        g_stoppedIcons[column][1] = g_slotIcons[column][1];
+        g_stoppedIcons[column][2] = g_slotIcons[column][2];
+        return 1;
+    }
+    else if ((g_slotPosition + ICON_HEIGHT * 1) % 170 <= SPEED)
+    {
+        g_stoppedIcons[column][0] = g_slotIcons[column][3];
+        g_stoppedIcons[column][1] = g_slotIcons[column][0];
+        g_stoppedIcons[column][2] = g_slotIcons[column][1];
+        return 1;
+    }
+    else if ((g_slotPosition + ICON_HEIGHT * 2) % 170 <= SPEED)
+    {
+        g_stoppedIcons[column][0] = g_slotIcons[column][2];
+        g_stoppedIcons[column][1] = g_slotIcons[column][3];
+        g_stoppedIcons[column][2] = g_slotIcons[column][0];
+        return 1;
+    }
+    else if ((g_slotPosition + ICON_HEIGHT * 3) % 170 <= SPEED)
+    {
+        g_stoppedIcons[column][0] = g_slotIcons[column][1];
+        g_stoppedIcons[column][1] = g_slotIcons[column][2];
+        g_stoppedIcons[column][2] = g_slotIcons[column][3];
+        return 1;
+    }
+    return 0;
 }
