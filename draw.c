@@ -13,6 +13,14 @@
 
 #define ICON_HEIGHT 42
 
+// This function initializes the screen, clears it, and sets the rotation
+void initScreen()
+{
+    ST7735_InitR(INITR_REDTAB);
+    ST7735_FillScreen(ST7735_WHITE);
+    ST7735_SetRotation(2);
+}
+
 // This function draws in the lines that create the columns in the slot machine
 void drawDividers()
 {

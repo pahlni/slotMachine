@@ -14,6 +14,7 @@
 #define COLUMN_ONE 78
 #define COLUMN_TWO 119
 
+void initScreen();
 void drawDividers();
 void drawEdges();
 void drawHandle(int handleIdx);

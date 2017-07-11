@@ -113,10 +113,8 @@ int main(void)
     //Initialize ADC for rand seeding
     initAdc();
 
-    ST7735_InitR(INITR_REDTAB);
-    ST7735_FillScreen(ST7735_WHITE);
-
-    ST7735_SetRotation(2);
+    // Initialize LCD screen
+    initScreen();
 
     drawDividers();
 
